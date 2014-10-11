@@ -71,6 +71,8 @@ SHIORIプロトコルの処理に[ShioriJK](https://github.com/Narazaka/shiorijk
 フィルタ
 -----------------------
 
+フィルタの一覧は[miyo-filters](https://github.com/Narazaka/miyojs-filters/wiki)にまとまっています。
+
 (ドキュメント未作成)
 
 Miyoリファレンス
