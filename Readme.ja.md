@@ -73,6 +73,120 @@ SHIORIサブシステムのrequestをSHIORI/3.0 ID別に分けて呼び出すこ
 
 SHIORIプロトコルの処理に[ShioriJK](https://github.com/Narazaka/shiorijk.git)、SHIOLINKインターフェースに[ShiolinkJS](https://github.com/Narazaka/shiolinkjs.git)を利用しています。
 
+MiyoJSの標準的な動作
+-----------------------
+
+### 起動
+
+MiyoJSはゴースト起動時にSSPに読み込まれたSHIOLINK.dllからシェルを通じて起動されます。
+
+起動時に辞書ファイルが配置されるディレクトリを渡されるので、それを読み込んでオブジェクトとしてメモリに保持します。
+もし失敗したときは、起動に失敗しSSPが固まります。
+
+この辞書はmiyoをMiyoJSのインスタンスとして、miyo.dictionariesで参照できます。
+
+### 初期化
+
+起動後はShiolinkJSを利用してSSP←→SHIOLINK.dll←→MiyoJSとSHIORI/3.0の通信が受け渡されます。
+
+まずSHIORI load()に対応する呼び出しにより、辞書から特別な名前である_loadエントリを呼び出し、実行します。
+
+このloadの動作をゴースト作者は完全に制御できるので、通常ここで初期化処理を行います。
+
+### 栞としての動作
+
+この後は終了する直前まで、SHIORI request()に対応する呼び出しと返答で栞は動作します。
+
+SHIORI request()に対応する呼び出しと返答は以下のように行われます。
+
+MiyoJSはrequest()呼び出しにより渡されたSHIORI/3.0 Requestメッセージを受け取ると、ShioriJKのパーサーによりShioriJK.Message.Requestオブジェクトにして扱います。
+
+辞書からそのリクエストがもつID名(IDヘッダの文字列)のエントリを呼び出し、実行した返り値からShioriJK.Message.Responseオブジェクトを生成します。
+
+これは文字列化され、SHIORI/3.0 Responseメッセージとして返答とされます。
+
+### 終了
+
+終了時は、SHIORI unload()に対応する呼び出しにより、辞書から特別な名前である_unloadエントリを呼び出し、実行します。
+
+このunloadの動作もゴースト作者は完全に制御できるので、通常ここで終了処理を行います。
+
+その処理が終わると栞のプロセスを終了します。
+
+エントリの呼び出しと実行
+-----------------------
+
+MiyoJSの最も主要な動作である「エントリ呼び出しと実行」について詳細に説明します。
+
+起動時の「辞書読み込み」と、終了時の「プロセス終了」という例外的な動作を除いて、MiyoJSは全ての動作が「エントリの呼び出しと実行」です。
+
+load()、unload()時は与えられる情報が少なく、返り値が使われないという違いはありますが、それも「エントリの呼び出しと実行」に変わりありません。
+
+### 渡されたSHIORI/3.0 Requestをオブジェクトにする
+
+request()時の「エントリ呼び出しと実行」が標準的なので、それを基準に説明します。
+
+まずrequest()呼び出しによってSHIOLINK.dllから渡されたSHIORI/3.0 Request文字列が、パーサにかけられ[ShioriJK.Message.Request](http://narazaka.github.io/shiorijk/doc/class/ShioriJK/Message.Request.html)オブジェクトとなります。
+
+これは[ShioriJK.RequestLine](http://narazaka.github.io/shiorijk/doc/class/ShioriJK/RequestLine.html)と[ShioriJK.Headers.Request](http://narazaka.github.io/shiorijk/doc/class/ShioriJK/Headers.Request.html)を持ち、各種データの参照を容易とするものです。
+
+    var method = request.request_line.method; // GET or NOTIFY
+    var id = request.headers.get('ID'); // OnBoot etc.
+    var reference0 = request.headers.get('Reference0');
+
+### IDに対応する辞書エントリを選択する(call_id)
+
+このオブジェクトからIDヘッダを参照し、「辞書」(miyo.dictionariesに保持された連想配列)から同名のキー(たとえばmiyo.dictionaries['OnBoot'])を捜します。
+
+キーが存在しない場合は400 BadRequestを生成してrequest()に返答します。
+
+キーが存在する場合はキーに対応する内容を「エントリ」とします。
+
+    var entry = miyo.dictionaries[id];
+
+### エントリの種別に対してそれぞれの処理を行い、単一値を得る(call_entry)
+
+エントリに対して以下の試行をします。
+
+1. エントリがスカラ(単一値)なら、その値をそのまま使う。
+2. エントリが配列なら、そのうち1要素をランダムに選択して使う。(call_list)
+3. エントリが連想配列なら、エントリを「フィルタ処理」して返された値を使う。(call_filters)
+
+エントリが配列だった場合に得られた1要素は、それを改めてこのプロセス(call_entry)にかけます。
+これはエントリが配列でなくなるまで再帰的に実行され、最終的な値が使われます。
+
+「フィルタ処理」はゴースト作成者任意の処理を行うことが出来ますが、ここは後で説明します。
+
+### 単一値を「Valueフィルタ」にかけ、結果を得る(call_value)
+
+エントリが最終的に単一値か配列で、「フィルタ処理」をする条件に当てはまらない場合、このプロセスを通過します。
+
+「Valueフィルタ」は与えられた単一値を任意に変更して返すフィルタ群です。
+
+単一値は最終的にSHIORI/3.0 ResponseのValueヘッダとして使われるので、そのValueヘッダをフィルタにかけるものという意味です。
+
+「Valueフィルタ」は配列miyo.value_filtersに名前を指定されたフィルタが連鎖的に使われます。
+後で説明する「フィルタ処理」と同様です。
+
+最初のフィルタには得られた単一値が与えられ、その後のフィルタには前のフィルタの出力結果が与えられます。
+
+最後のフィルタの出力値がValueヘッダとして使われる値となります。
+
+また各段のフィルタにはそのほかにもrequest、id、stash(フィルタ処理で説明 通常はnull)が引数として与えられます。
+
+### SHIORI/3.0 Responseを生成する
+
+Valueヘッダの値が得られる、または「フィルタ処理」から返された値が得られると、その値を基にしてShioriJK.Message.Responseオブジェクトを生成します。
+
+これを文字列化してSHIORI/3.0 Responseとしてrequest()に返答します。
+
+もしここまでの過程のうちでエラーが生じていた場合、500 Internal Server Errorをrequest()に返答します。
+
+フィルタ処理
+-----------------------
+
+(ドキュメント未作成)
+
 辞書
 -----------------------
 
@@ -295,11 +409,6 @@ unload時は特別な名前のエントリ、「_unload」が呼び出されま�
 -----------------------
 
 公開されたフィルタの一覧は[miyo-filters](https://github.com/Narazaka/miyojs-filters/wiki)にまとまっています。
-
-(ドキュメント未作成)
-
-Miyoの標準的な動作
------------------------
 
 (ドキュメント未作成)
 
