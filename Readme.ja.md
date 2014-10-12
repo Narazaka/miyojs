@@ -48,7 +48,17 @@ SHIORIサブシステムのrequestをSHIORI/3.0 ID別に分けて呼び出すこ
 
 を実行します。
 
-次にSHIOLINK.iniを
+次に、[node.js](http://nodejs.org/)実行環境のnode.exeを適当な場所に配置します。
+
+さらに[SHIOLINK](https://code.google.com/p/shiori-basic/downloads/)を入手し、SHIOLINK.dllとSHIOLINK.iniを`/ghost/master`ディレクトリに配置します。
+
+そしてSHIOLINK.iniを編集し、
+
+    commandline = path\to\node.exe .\node_modules\miyojs\bin\miyo-shiolink.js path\to\dictionaries
+
+と設定します。
+
+`path\to\dictionaries`はMiyoDictionary辞書ファイルを配置するディレクトリです。
 
 この部分はアーカイブ済みサンプルゴーストを使うことでスキップできます。
 
@@ -56,7 +66,7 @@ SHIORIサブシステムのrequestをSHIORI/3.0 ID別に分けて呼び出すこ
 
     npm install miyojs
 
-ライブラリとしての使用方法は後述の**Miyoリファレンス**を参照してください。
+ライブラリとしての使用方法は後述の__Miyoリファレンス__を参照してください。
 
 依存関係
 -----------------------
