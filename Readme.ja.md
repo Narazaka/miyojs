@@ -1,4 +1,4 @@
-MiyoJS - JavaScript用SHIORIサブシステム「美代」
+MiyoJS - SHIORIサブシステム「美代」 for JavaScript
 ===============================================
 
 Miyo(美代)とは
