@@ -76,6 +76,8 @@ SHIORIプロトコルの処理に[ShioriJK](https://github.com/Narazaka/shiorijk
 MiyoJSの標準的な動作
 -----------------------
 
+伺かの栞として利用される場合の動作を説明します。
+
 ### 起動
 
 MiyoJSはゴースト起動時にSSPに読み込まれたSHIOLINK.dllからシェルを通じて起動されます。
@@ -83,7 +85,7 @@ MiyoJSはゴースト起動時にSSPに読み込まれたSHIOLINK.dllからシ�
 起動時に辞書ファイルが配置されるディレクトリを渡されるので、それを読み込んでオブジェクトとしてメモリに保持します。
 もし失敗したときは、起動に失敗しSSPが固まります。
 
-この辞書はmiyoをMiyoJSのインスタンスとして、miyo.dictionariesで参照できます。
+この辞書はmiyoをMiyoJSのインスタンスとして、miyo.dictionaryで参照できます。
 
 ### 初期化
 
@@ -122,9 +124,9 @@ MiyoJSの最も主要な動作である「エントリ呼び出しと実行」�
 
 load()、unload()時は与えられる情報が少なく、返り値が使われないという違いはありますが、それも「エントリの呼び出しと実行」に変わりありません。
 
-### 渡されたSHIORI/3.0 Requestをオブジェクトにする
-
 request()時の「エントリ呼び出しと実行」が標準的なので、それを基準に説明します。
+
+### 渡されたSHIORI/3.0 Requestをオブジェクトにする
 
 まずrequest()呼び出しによってSHIOLINK.dllから渡されたSHIORI/3.0 Request文字列が、パーサにかけられ[ShioriJK.Message.Request](http://narazaka.github.io/shiorijk/doc/class/ShioriJK/Message.Request.html)オブジェクトとなります。
 
@@ -134,58 +136,125 @@ request()時の「エントリ呼び出しと実行」が標準的なので、�
     var id = request.headers.get('ID'); // OnBoot etc.
     var reference0 = request.headers.get('Reference0');
 
+このリクエストオブジェクトShioriJK.Message.Requestをmiyo.request()に渡します。
+
+### リクエストが有効なら辞書処理を呼ぶ(request)
+
+まずリクエストオブジェクトがSHIORI/3.0であることを確認し、そうでないなら400 BadRequestを生成してSHIORIのrequest()に返答します。
+
+次にこのオブジェクトからIDヘッダを取得し、そのIDとShioriJK.Message.Requestを引数にとってmiyo.call_id()が呼ばれます。
+
 ### IDに対応する辞書エントリを選択する(call_id)
 
-このオブジェクトからIDヘッダを参照し、「辞書」(miyo.dictionariesに保持された連想配列)から同名のキー(たとえばmiyo.dictionaries['OnBoot'])を捜します。
+「辞書」(miyo.dictionaryに保持された連想配列)からID名のキー(たとえばmiyo.dictionary['OnBoot'])を捜します。
 
-キーが存在しない場合は400 BadRequestを生成してrequest()に返答します。
+キーが存在しない場合は400 BadRequestを生成してSHIORIのrequest()に返答します。
 
 キーが存在する場合はキーに対応する内容を「エントリ」とします。
 
-    var entry = miyo.dictionaries[id];
+    var entry = miyo.dictionary[id];
+
+そしてID、ShioriJK.Message.Requestとこのエントリを引数にとってmiyo.call_entry()が呼ばれます。
 
 ### エントリの種別に対してそれぞれの処理を行い、単一値を得る(call_entry)
 
 エントリに対して以下の試行をします。
 
-1. エントリがスカラ(単一値)なら、その値をそのまま使う。
-2. エントリが配列なら、そのうち1要素をランダムに選択して使う。(call_list)
-3. エントリが連想配列なら、エントリを「フィルタ処理」して返された値を使う。(call_filters)
+1. エントリがスカラ(単一値)なら、その値をmiyo.call_value()に渡す。
+2. エントリが配列なら、ランダム選択によりそのうち1要素を得る(call_list)。その値をエントリとして、再びmiyo.call_entry()を呼ぶ。
+3. エントリが連想配列なら、エントリ内容をmiyo.call_filters()に渡す。
 
-エントリが配列だった場合に得られた1要素は、それを改めてこのプロセス(call_entry)にかけます。
-これはエントリが配列でなくなるまで再帰的に実行され、最終的な値が使われます。
+エントリが配列だった場合は、それが配列でなくなるまで再帰的にランダム選択されます。
 
-「フィルタ処理」はゴースト作成者任意の処理を行うことが出来ますが、ここは後で説明します。
+つまりこのcall_entryでは最終的に、単一値がmiyo.call_value()に渡されるか、連想配列値がmiyo.call_filters()に渡されるかの2パターンになります。
 
-### 単一値を「Valueフィルタ」にかけ、結果を得る(call_value)
+miyo.call_value()に渡される単一値はたいていの場合単なるさくらスクリプト文字列か、またはリソース文字列です。
 
-エントリが最終的に単一値か配列で、「フィルタ処理」をする条件に当てはまらない場合、このプロセスを通過します。
+miyo.call_filters()に渡される連想配列値は、「フィルタ」の名前を列挙したfiltersキーと、最初のフィルタに渡す引数であるargumentキー(ない場合もある)をもつデータです。
+
+miyo.call_value()は「Valueフィルタ処理」、miyo.call_filters()は「フィルタ処理」をそれぞれ渡された値に施して、Valueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトを返します。
+
+どちらにもエントリのほかにID、ShioriJK.Message.Requestも引数として渡されます。
+
+この「Valueフィルタ処理」、「フィルタ処理」はゴースト制作者が完全に制御できる、Miyoの特徴の根幹です。
+
+これらの詳細については後で説明します。
+
+とりあえず、エントリの値に何らかの変換を施して、最終値を得るということです。
+
+この最終値、Valueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトをmiyo.request()に返します。
+
+### SHIORI/3.0 Responseを生成する(request)
+
+Valueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトを受け取って、前者の場合はその値を基にしてShioriJK.Message.Responseオブジェクトを生成します。
+
+これを文字列化してSHIORI/3.0 ResponseとしてSHIORIのrequest()に返答します。
+
+もしここまでの過程のうちでエラーが生じていた場合、500 Internal Server ErrorをSHIORIのrequest()に返答します。
+
+以上で「エントリの呼び出しと実行」の一連の流れが終了します。
+
+エントリの呼び出しと実行(load()、unload()時)
+-----------------------
+
+load()、unload()時も中心的な流れは同一ですが、開始と終了に違いがあります。
+
+### load()呼び出しの場合 渡されるディレクトリを格納する(load)
+
+load()はゴーストのカレントディレクトリを表す1つの引数を伴っています。
+
+これをmiyo.shiori_dll_directoryに保存します。
+
+### 辞書処理を呼ぶ(load/unload)
+
+loadの場合、IDを「_load」としてmiyo.call_id()が呼ばれます。
+
+unloadの場合、IDを「_unload」としてmiyo.call_id()が呼ばれます。
+
+リクエストオブジェクトは当然存在しないので、nullが渡されます。
+
+### request()と同一の処理
+
+この後はrequestと同一の処理が行われますが、返値は無視されます。
+
+なので前述の説明のcall_entryの箇所までとなります。
+
+### unload()呼び出しの場合 終了する(unload)
+
+すべての処理が終わったら、process.exit()を呼び、プロセスを終了します。
+
+フィルタ処理(call_filters)
+-----------------------
+
+Miyoにおいて「フィルタ」と呼ばれるものは、辞書の処理中に呼出しできる関数です。
+
+辞書においてエントリが連想配列である場合、そのfiltersキーにある名前のリストを参照し、その名前のフィルタ関数が順番に実行されます。
+
+フィルタ関数は連想配列miyo.filtersに名前をキーとして登録された関数です。。
+
+    OnTest:
+    	filters: [filter_1, filter_2]
+    	argument:
+    		filter_1: 111
+
+上記の場合miyo.filters.filter_1とmiyo.filters.filter_2が関数として実行されます。
+
+(ドキュメント作成中)
+
+Valueフィルタ処理(call_value)
+-----------------------
 
 「Valueフィルタ」は与えられた単一値を任意に変更して返すフィルタ群です。
 
-単一値は最終的にSHIORI/3.0 ResponseのValueヘッダとして使われるので、そのValueヘッダをフィルタにかけるものという意味です。
-
 「Valueフィルタ」は配列miyo.value_filtersに名前を指定されたフィルタが連鎖的に使われます。
-後で説明する「フィルタ処理」と同様です。
 
-最初のフィルタには得られた単一値が与えられ、その後のフィルタには前のフィルタの出力結果が与えられます。
-
-最後のフィルタの出力値がValueヘッダとして使われる値となります。
+最初のフィルタにはエントリの最終値が与えられ、その後のフィルタには前のフィルタの出力結果が与えられます。
 
 また各段のフィルタにはそのほかにもrequest、id、stash(フィルタ処理で説明 通常はnull)が引数として与えられます。
 
-### SHIORI/3.0 Responseを生成する
+つまり、「フィルタ処理」(call_filters)でエントリのfiltersキーをmiyo.value_filters、argumentキーをエントリの最終値とした処理が行われ、その最終的な返り値がValueヘッダとして使われる値となります。
 
-Valueヘッダの値が得られる、または「フィルタ処理」から返された値が得られると、その値を基にしてShioriJK.Message.Responseオブジェクトを生成します。
-
-これを文字列化してSHIORI/3.0 Responseとしてrequest()に返答します。
-
-もしここまでの過程のうちでエラーが生じていた場合、500 Internal Server Errorをrequest()に返答します。
-
-フィルタ処理
------------------------
-
-(ドキュメント未作成)
+(ドキュメント作成中)
 
 辞書
 -----------------------
@@ -249,15 +318,15 @@ Miyo仕様の栞内部で扱う分には、配列と連想配列が階層的に�
 
 基本的に辞書にはSHIORI/3.0 Event名をトップレベルにした連想配列を記述します。
 
-OnBootとOnFirstBootは__単一値__を持つエントリ(トップレベルの連想配列キー)です。
+OnBootとOnFirstBootは__単一値__エントリ(トップレベルの連想配列キーに対応する内容)です。
 
 OnFirstBootはYAMLのブロック記述を使っています。
 
-OnCloseは__配列値__を持つエントリです。
+OnCloseは__配列値__エントリです。
 
 3番目の値が同様にYAMLのブロック記述を使っています。
 
-OnGhostChangingは__連想配列値__をもつエントリです。
+OnGhostChangingは__連想配列値__エントリです。
 
 MiyoDictionaryで有効な連想配列値の中のキーは、filtersキー(必須)とargument(なくても良い)のみです。
 filtersキーには配列または単一値、argumentには任意の値が許可されます。
