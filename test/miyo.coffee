@@ -210,12 +210,16 @@ describe 'call_filters', ->
 		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with final/
 		entry =
 			filters: ['arg_to_argument']
+			argument:
+				arg_to_argument: 'dummy'
 		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with final/
 		entry =
 			filters: ['value_plus_end']
 		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with previous/
 		entry =
 			filters: ['arg_to_argument', 'value_plus_end']
+			argument:
+				arg_to_argument: 'dummy'
 		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with previous/
 	it 'should pass argument and filter-return-value to filters sequentially', ->
 		entry =

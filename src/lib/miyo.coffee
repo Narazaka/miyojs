@@ -73,8 +73,6 @@ class Miyo
 			filter_names = [entry.filters]
 		@_process_filters 'data', 'value', filter_names, argument, request, id, stash
 	_process_filters: (input_type, output_type, filter_names, argument, request, id, stash) ->
-		# find and check
-		filters = []
 		type = input_type
 		for filter_name in filter_names
 			filter = @filters[filter_name]
@@ -91,12 +89,9 @@ class Miyo
 					type = output
 			else
 				throw "filter [#{filter_name}] input type '#{input}' is inconsistent with previous output type '#{type}'"
-			filters.push filter.filter
+			argument = filter.filter.call @, argument, request, id, stash
 		unless !request? or type == output_type
 			throw "filters final output type '#{type}' is inconsistent with final output type 'value'"
-		# call
-		for filter in filters
-			argument = filter.call @, argument, request, id, stash
 		argument
 	call_not_found : (entry, request, id, stash) ->
 		@make_bad_request request
