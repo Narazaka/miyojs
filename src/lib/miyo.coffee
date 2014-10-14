@@ -6,7 +6,7 @@ if require?
 class Miyo
 	constructor : (@dictionary) ->
 		@filters =
-			miyo_require_filters : (argument, request) ->
+			miyo_require_filters : type: 'through', filter: (argument) ->
 				if require?
 					path = require 'path'
 					for file in argument.miyo_require_filters
