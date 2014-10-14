@@ -1,8 +1,9 @@
 {
   "name": "miyojs",
-  "version": "0.0.6",
+  "version": "1.0.0",
   "description": "MiyoJS - SHIORI subsystem Miyo for JavaScript",
-  "homepage": "http://narazaka.github.io/miyojs/",
+  "keywords": ["miyojs"],
+  "homepage": "https://github.com/Narazaka/miyojs/blob/master/Readme.ja.md",
   "main": "index.js",
   "bin": {
     "miyo-shiolink": "bin/miyo-shiolink.js"
@@ -15,6 +16,13 @@
     "shiorijk": ">= 0.0.1",
     "shiolinkjs": ">= 0.0.1"
   },
+  "devDependencies": {
+    "coffee-script": ">= 1.8.0",
+    "mocha": ">= 1.18.2",
+    "chai": ">= 1.9.0",
+    "sinon": ">= 1.10.3",
+    "istanbul": ">= 0.3.2"
+  },
   "author": {
     "name": "narazaka",
     "url": "http://narazaka.net/"
@@ -24,12 +32,8 @@
     "type": "git",
     "url": "https://github.com/Narazaka/miyojs.git"
   },
-  "readme": "MiyoJS - JavaScript用SHIORIサブシステム「美代」\r\n===============================================\r\n\r\nMiyo(美代)とは\r\n-----------------------\r\n\r\nMiyo(美代)は伺か用のSHIORI(栞)サブシステムです。\r\n\r\n標準でYAMLによる簡潔で記述し易い辞書形式MiyoDictionaryを用いつつ、フィルタによりあらゆるプログラムコードの実行をサポートします。\r\n\r\nMiyoJSとは\r\n-----------------------\r\n\r\nMiyoの仕様を満たしたJavaScriptによる栞の実装です。\r\n\r\n今のところ唯一の実装ですが、今後他言語版も作るかどうかは未定です。\r\n\r\nコンセプト\r\n-----------------------\r\n\r\n新しい栞には新しいコンセプトが必要です。\r\n\r\nMiyoは汎用言語の採用および簡潔かつ一貫した機能と徹底した役割分離により、プログラミング的に保守性の高いゴースト作成ができるSHIORIを目指しています。\r\n\r\nMiyoが本質的にサポートするのは素のSHIORIプロトコルとの変換と辞書の制御程度の非常に限定的な部分です。\r\n\r\nSHIORIサブシステムのrequestをSHIORI/3.0 ID別に分けて呼び出すことを基本としますが、普通干渉しないload、unloadをも制御できます。\r\n一貫した動作を目指すことにより、多くのSHIORIサブシステムが内部で勝手に返すID: version等も全て辞書にゆだねられています。\r\n\r\nさらに辞書から任意引数を渡せるフィルタ関数をサポートし、処理とデータを分離しつつ自由な処理ができる構造になっています。\r\nこれによってMiyoが辞書の枠組みに特化した基本的な機能のみを提供しつつ、その他の様々な機能は個別のフィルタとして随時選んで追加することが可能となり、透明性とメンテナンス性の高いゴースト制作が可能となります。\r\n\r\n名前について\r\n-----------------------\r\n\r\n伺かのSHIORIサブシステムには伝統的に女性名をあてるので、拙作の漫画のキャラクターから名前を取り美代(みよ)と名づけました。\r\n\r\n使用方法\r\n-----------------------\r\n\r\n### 栞として\r\n\r\nここではゴーストに組み込んで使用する方法を示します。\r\n\r\n`/ghost/master`ディレクトリをカレントとして\r\n\r\n    npm install miyojs\r\n\r\nを実行します。\r\n\r\n次にSHIOLINK.iniを\r\n\r\nこの部分はアーカイブ済みサンプルゴーストを使うことでスキップできます。\r\n\r\n### ライブラリとしてのインストール\r\n\r\n    npm install miyoshiori\r\n\r\nライブラリとしての使用方法は後述の**Miyoリファレンス**を参照してください。\r\n\r\n依存関係\r\n-----------------------\r\n\r\nSHIORIプロトコルの処理に[ShioriJK](https://github.com/Narazaka/shiorijk.git)、SHIOLINKインターフェースに[ShiolinkJS](https://github.com/Narazaka/shiolinkjs.git)を利用しています。\r\n\r\n辞書\r\n-----------------------\r\n\r\n(ドキュメント未作成)\r\n\r\nフィルタ\r\n-----------------------\r\n\r\n(ドキュメント未作成)\r\n\r\nMiyoリファレンス\r\n-----------------------\r\n\r\n### require\r\n\r\n以下の記述は次を前提とします。\r\n\r\n    var Miyo = require('miyojs');\r\n\r\n### コンストラクタ\r\n\r\n    var miyo = new Miyo(dictionary)\r\n\r\ndictionaryはdictionary属性に代入されます。\r\n\r\n### 属性\r\n\r\n#### shiori_dll_directory\r\n\r\nベースウェアからload時に渡されるSHIORI.dllのbasedir\r\n\r\nこれは`load()`が呼ばれた以降に存在します。\r\n\r\n#### dictionary\r\n\r\n**辞書**のデータ\r\n\r\nイベント名とエントリ内容のペアである連想配列としてのオブジェクトです。\r\n\r\n#### filters\r\n\r\n**フィルタ**のデータ\r\n\r\nフィルタ名とフィルタ関数のペアである連想配列としてのオブジェクトです。\r\n\r\n#### value_filters\r\n\r\n**valueフィルタ**の名前リスト\r\n\r\nvalueフィルタとして使用するフィルタを渡す順に列挙します。\r\n\r\n#### default_response_headers\r\n\r\n`make_value()`等のSHIORIレスポンスメッセージ自動生成で利用されるデフォルトのヘッダ\r\n\r\nヘッダ名とヘッダ内容のペアである連想配列としてのオブジェクトです。\r\n\r\n`Charset: UTF-8`やSender等を登録しておくと便利です。\r\n\r\n### load(directory)\r\n\r\n    miyo.load('C:/path/to/shiori/dll')\r\n\r\ndirectoryはベースウェアからload時に渡されるSHIORI.dllのbasedirです。\r\n\r\n辞書中の`_load`エントリを呼びます。\r\n\r\n### request(request)\r\n\r\n    var response = miyo.request(request)\r\n\r\nrequestはShioriJK.Message.Requestです。\r\n\r\nresponseとしてSHIORI/3.0 Responseを返します。\r\n\r\nrequestとresponseを対応付ける処理は**辞書**にゆだねられます。\r\n\r\n### unload()\r\n\r\n    miyo.unload()\r\n\r\n可能なら`process.exit()`します。\r\n\r\n(ドキュメント作成中)\r\n\r\nライセンス\r\n--------------------------\r\n\r\n[MITライセンス](http://narazaka.net/license/MIT?2014)の元で配布いたします。\r\n",
   "readmeFilename": "Readme.ja.md",
   "bugs": {
     "url": "https://github.com/Narazaka/miyojs/issues"
-  },
-  "_id": "miyojs@0.0.2",
-  "_shasum": "e9396e03d23998a02bd03822db12cfc77e9024e7",
-  "_from": "miyojs@*"
+  }
 }

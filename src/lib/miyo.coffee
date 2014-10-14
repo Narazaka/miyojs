@@ -61,27 +61,42 @@ class Miyo
 			@call_not_found entry, request, id, stash
 	call_value : (entry, request, id, stash) ->
 		value = entry
-		for filter_name in @value_filters
-			filter = @filters[filter_name]
-			if filter?
-				value = filter.call @, value, request, id, stash
-			else
-				throw "value filter [#{filter_name}] not found"
-		value
+		filter_names = @value_filters
+		@_process_filters 'value', 'value', @value_filters, value, request, id, stash
 	call_list : (entry, request, id, stash) ->
 		@call_entry entry[Math.floor (Math.random() * entry.length)], request, id, stash
 	call_filters : (entry, request, id, stash) ->
 		argument = entry.argument
 		if entry.filters instanceof Array
-			filters = entry.filters
+			filter_names = entry.filters
 		else
-			filters = [entry.filters]
-		for filter_name in filters
+			filter_names = [entry.filters]
+		@_process_filters 'data', 'value', filter_names, argument, request, id, stash
+	_process_filters: (input_type, output_type, filter_names, argument, request, id, stash) ->
+		# find and check
+		filters = []
+		type = input_type
+		for filter_name in filter_names
 			filter = @filters[filter_name]
-			if filter?
-				argument = filter.call @, argument, request, id, stash
-			else
+			unless filter?
 				throw "filter [#{filter_name}] not found"
+			unless filter.filter?
+				throw "filter [#{filter_name}] function is undefined"
+			filter_types = Miyo.filter_types[filter.type]
+			unless filter_types
+				throw "filter [#{filter_name}] has invalid filter type '#{filter.type}'"
+			{input, output} = filter_types
+			if input == type or input == 'through' or input == 'any'
+				unless output == 'through'
+					type = output
+			else
+				throw "filter [#{filter_name}] input type '#{input}' is inconsistent with previous output type '#{type}'"
+			filters.push filter.filter
+		unless !request? or type == output_type
+			throw "filters final output type '#{type}' is inconsistent with final output type 'value'"
+		# call
+		for filter in filters
+			argument = filter.call @, argument, request, id, stash
 		argument
 	call_not_found : (entry, request, id, stash) ->
 		@make_bad_request request
@@ -113,6 +128,13 @@ class Miyo
 			response.headers.set name, content
 		response.headers.set 'X-Miyo-Error', "#{error}".replace(/\r/g, '\\r').replace(/\n/g, '\\n') if error
 		response
+
+Miyo.filter_types =
+	'through': {input: 'through', output: 'through'}
+	'data-data': {input: 'data', output: 'data'}
+	'data-value': {input: 'data', output: 'value'}
+	'value-value': {input: 'value', output: 'value'}
+	'any-value': {input: 'any', output: 'value'}
 
 if module? and module.exports?
 	module.exports = Miyo

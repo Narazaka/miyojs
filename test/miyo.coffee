@@ -110,12 +110,12 @@ describe 'call_value', ->
 		value = '\\h\\s[0]'
 		stash = 'stash'
 	it 'should pass value to value_filters', ->
-		ms.filters.test_value_filter = (value, request, id, stash) -> value + '\\e'
+		ms.filters.test_value_filter = type: 'value-value', filter: (value, request, id, stash) -> value + '\\e'
 		ms.value_filters.push 'test_value_filter'
 		res = ms.call_value(value, request, id, stash)
 		res.should.be.equal value + '\\e'
 	it 'should pass exact arguments to filters', ->
-		ms.filters.test_value_filter = (value, request, id, stash) -> request + id + value + stash + '\\e'
+		ms.filters.test_value_filter = type: 'value-value', filter: (value, request, id, stash) -> request + id + value + stash + '\\e'
 		ms.value_filters.push 'test_value_filter'
 		res = ms.call_value(value, request, id, stash)
 		res.should.be.equal request + id + value + stash + '\\e'
@@ -132,47 +132,113 @@ describe 'call_filters', ->
 	beforeEach ->
 		ms = new Miyo()
 		test = null
-		ms.filters.test_filter = (argument, request, id, stash) ->
-			test = id
-			argument.test_filter
-		ms.filters.test_filter2 = (argument, request, id, stash) ->
-			test = test + argument.test_filter2 + id + stash
+		ms.filters.no_type = filter: ->
+		ms.filters.wrong_type = type: 'wrong', filter: ->
+		ms.filters.no_function = type: 'any-value'
+		ms.prop = 0
+		ms.filters.this_prop_inc = type: 'through', filter: (argument, request, id, stash) ->
+			@prop++
 			argument
-		ms.filters.test_filter_check = (argument, request, id, stash) ->
-			JSON.stringify(argument) + request + id + stash
+		ms.filters.value_plus_end = type: 'value-value', filter: (value, request, id, stash) ->
+			value + 'end'
+		ms.filters.arg_to_value = type: 'data-value', filter: (argument, request, id, stash) ->
+			argument.arg_to_value
+		ms.filters.arg_to_argument = type: 'data-data', filter: (argument, request, id, stash) ->
+			argument.arg_to_argument
+		ms.filters.arg_or_value_to_value = type: 'any-value', filter: (argument, request, id, stash) ->
+			if 'string' == typeof argument
+				argument
+			else
+				argument.arg_or_value_to_value
+		sinon.spy ms.filters.arg_or_value_to_value, 'filter'
 		request = new ShioriJK.Message.Request()
 		id = 'OnTest'
 		stash = 'stash'
-	it 'should pass argument and filter-return-value to filters sequentially', ->
-		entry =
-			filters: ['test_filter', 'test_filter2']
-			argument:
-				test_filter:
-					test_filter2: 'test2'
-		res = ms.call_filters(entry, request, id, stash)
-		res.should.be.deep.equal entry.argument.test_filter
-		test.should.be.equal id + entry.argument.test_filter.test_filter2 + id + stash
-	it 'should treat non-array filters property', ->
-		entry =
-			filters: 'test_filter'
-			argument:
-				test_filter: 'test'
-		res = ms.call_filters(entry, request, id, stash)
-		res.should.be.deep.equal entry.argument.test_filter
-		test.should.be.equal id
-	it 'should pass exact arguments to filters', ->
-		entry =
-			filters: ['test_filter_check']
-			argument:
-				test_filter: 'test'
-		res = ms.call_filters(entry, request, id, stash)
-		res.should.be.equal JSON.stringify(entry.argument) + request + id + stash
 	it 'should throw on filter not found', ->
 		entry =
 			filters: ['test_filter_not_exists']
-			argument:
-				test_filter: 'test'
 		(-> ms.call_filters(entry, request, id, stash)).should.throw /not found/
+	it 'should throw on wrong filter type', ->
+		entry =
+			filters: ['no_type']
+		(-> ms.call_filters(entry, request, id, stash)).should.throw /invalid filter type/
+		entry =
+			filters: ['wrong_type']
+		(-> ms.call_filters(entry, request, id, stash)).should.throw /invalid filter type/
+	it 'should throw on empty filter function', ->
+		entry =
+			filters: ['no_function']
+		(-> ms.call_filters(entry, request, id, stash)).should.throw /function is undefined/
+	it 'should check filters types', ->
+		entry =
+			filters: ['this_prop_inc', 'arg_to_argument', 'arg_to_value', 'this_prop_inc', 'value_plus_end', 'arg_or_value_to_value', 'this_prop_inc', 'this_prop_inc']
+			argument:
+				arg_to_argument:
+					arg_to_value: 'ret'
+		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+	it 'should check filters type [any-value]', ->
+		# data -> any
+		entry =
+			filters: ['arg_to_argument', 'arg_or_value_to_value']
+			argument:
+				arg_to_argument:
+					arg_or_value_to_value: 'ret'
+		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+		# value -> any
+		entry =
+			filters: ['arg_to_value', 'arg_or_value_to_value']
+			argument:
+				arg_to_value: 'ret'
+		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+	it 'should check filters type [through]', ->
+		# data -> through
+		entry =
+			filters: ['arg_to_argument', 'this_prop_inc', 'arg_or_value_to_value']
+			argument:
+				arg_to_argument:
+					arg_or_value_to_value: 'ret'
+		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+		# value -> through
+		entry =
+			filters: ['arg_to_value', 'this_prop_inc', 'arg_or_value_to_value']
+			argument:
+				arg_to_value: 'ret'
+		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+	it 'should throw with filters type inconsistency', ->
+		entry =
+			filters: ['this_prop_inc']
+		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with final/
+		entry =
+			filters: ['arg_to_argument']
+		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with final/
+		entry =
+			filters: ['value_plus_end']
+		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with previous/
+		entry =
+			filters: ['arg_to_argument', 'value_plus_end']
+		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with previous/
+	it 'should pass argument and filter-return-value to filters sequentially', ->
+		entry =
+			filters: ['arg_to_argument', 'arg_to_value']
+			argument:
+				arg_to_argument:
+					arg_to_value: 'ret'
+		res = ms.call_filters(entry, request, id, stash)
+		res.should.be.deep.equal 'ret'
+	it 'should treat non-array filters property', ->
+		entry =
+			filters: 'arg_or_value_to_value'
+			argument: 'ret'
+		res = ms.call_filters(entry, request, id, stash)
+		res.should.be.deep.equal 'ret'
+	it 'should pass exact arguments to filters', ->
+		entry =
+			filters: ['arg_or_value_to_value']
+			argument:
+				arg_or_value_to_value: 'ret'
+		res = ms.call_filters(entry, request, id, stash)
+		ms.filters.arg_or_value_to_value.filter.calledOnce.should.be.true
+		ms.filters.arg_or_value_to_value.filter.calledWithExactly(entry.argument, request, id, stash).should.be.true
 
 describe 'call_list', ->
 	ms = null
@@ -233,7 +299,7 @@ describe 'call_entry', ->
 		s.calledOnce.should.be.true
 		s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
 	it 'should pass filter entry to call_filters', ->
-		ms.filters.test_filter = (argument, request, id, stash) -> argument
+		ms.filters.test_filter = type: 'data-value', filter: (argument, request, id, stash) -> argument
 		entry =
 			filters: ['test_filter']
 			argument:
