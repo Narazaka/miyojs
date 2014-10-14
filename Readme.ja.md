@@ -74,7 +74,7 @@ SHIORIサブシステムのrequestをSHIORI/3.0 ID別に分けて呼び出すこ
 依存関係
 -----------------------
 
-SHIORIプロトコルの処理に[ShioriJK](https://github.com/Narazaka/shiorijk.git)、SHIOLINKインターフェースに[ShiolinkJS](https://github.com/Narazaka/shiolinkjs.git)を利用しています。
+SHIORIプロトコルの処理に[ShioriJK](https://github.com/Narazaka/shiorijk.git)、SHIOLINKインターフェースに[ShiolinkJS](https://github.com/Narazaka/shiolinkjs.git)、YAML形式の辞書の読み込みに[js-yaml](https://github.com/nodeca/js-yaml.git)を利用しています。
 
 ドキュメント
 -----------------------

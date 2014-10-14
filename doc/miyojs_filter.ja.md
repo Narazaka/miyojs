@@ -321,3 +321,29 @@ node.jsのrequireは常にそれが記述されているファイルの位置を
 -フィルタ名の先頭にそれらがつかない場合、「miyojs-filter-」と指定されたフィルタ名を連結した名前をrequireに渡す。
 
 の少なくとも前者のプロセスを踏む必要があります。
+
+#### node.js・ブラウザ両対応
+
+MiyoJSの動作環境に即してnode.js・ブラウザ両対応するとき、ライブラリの使用法を工夫する必要があります。
+
+一般的にnode.jsはrequireを使う一方、ブラウザでは&lt;script&gt;タグであらかじめ読み込まれたライブラリデフォルトの名前の変数を使います。
+
+ここから下記のようなコードが求められます。
+
+    var ShioriJK;
+    if (typeof require !== "undefined" && require !== null) {
+    	ShioriJK = require('shiorijk');
+    }
+    
+    var shiorijk = new ShioriJK();
+    ...
+
+coffee-scriptで生成する場合は以下
+
+    if require
+    	ShioriJK = require 'shiorijk'
+    
+    shiorijk = new ShioriJK()
+    ...
+
+ブラウザ用にrequireの存在確認をし、ブラウザでも使用できるライブラリのブラウザ上でのデフォルト変数と同じになるようにrequireの対象を調整すれば、両対応が可能になります。
