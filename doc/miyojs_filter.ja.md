@@ -269,6 +269,15 @@ package.jsonはnpmに登録する情報を記述するJSONファイルです。
       "dependencies": {
         "js-yaml": ">= 3.0.2"
       },
+      "devDependencies": {
+        "coffee-script": ">= 1.8.0",
+        "mocha": ">= 1.20.1",
+        "chai": ">= 1.9.2",
+        "sinon": ">= 1.10.3",
+        "istanbul": ">= 0.3.2",
+        "miyojs": ">= 1.0.3",
+        "miyojs-filter-property": ">= 1.0.0"
+      },
       "readmeFilename": "Readme.md",
       "homepage": "http://www.example.com/foo/",
       "author": {
@@ -288,6 +297,7 @@ package.jsonはnpmに登録する情報を記述するJSONファイルです。
 - (任意)keywordsはキーワードの配列です。検索時に使われます。最低限"miyojs", "miyojs-filter"を指定しておくとよいでしょう。
 - licenseはライセンスです。よく知られたオープンソースライセンスを使う場合は定められた略称で記述できます。
 - dependenciesは依存するモジュールです。依存モジュールがない場合は省略できます。
+- devDependenciesは開発時のみ依存するモジュールです。依存モジュールがない場合は省略できます。
 - (任意)readmeFilenameはReadmeファイルの名前です。
 - (任意)homepageはWebサイトです。
 - (任意)authorは作者情報です。
@@ -309,7 +319,19 @@ npmはモジュールが依存するモジュールを、そのモジュール�
 
 Readme等にその旨を書いてください。
 
+開発時のテスト等の時はdevDependenciesを使って自動化することが可能です。
+
 ### フィルタ作成のTips
+
+#### フィルタの機能
+
+フィルタは出来るだけ「単機能」にすることを推奨します。
+
+「単機能」というのは難しいですが、ようはある1つの目的に対して最低限の機能の切り分けをするということです。
+
+[miyojs-filter-value](https://github.com/Narazaka/miyojs-filter-value.git)等は非常に単純ですが、たとえば色々な機能を持った[miyojs-filter-autotalks](https://github.com/Narazaka/miyojs-filter-autotalks.git)も、「AIトークをする」ということのみに注力していて、AIトークでも重要ですがそれ以外にも重要な「トークをかぶらないようにする」機能は別のフィルタで提供するようにしています。
+
+目的を絞って利用しやすいフィルタの機能を心がけましょう。
 
 #### フィルタ中でのrequire
 
