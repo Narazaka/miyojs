@@ -150,6 +150,11 @@ describe 'call_filters', ->
 				argument
 			else
 				argument.arg_or_value_to_value
+		ms.filters.set_stash = type: 'through', filter: (argument, request, id, stash) ->
+			for name, value of argument.set_stash
+				stash[name] = value
+		ms.filters.get_stash = type: 'any-value', filter: (argument, request, id, stash) ->
+			stash
 		sinon.spy ms.filters.arg_or_value_to_value, 'filter'
 		request = new ShioriJK.Message.Request()
 		id = 'OnTest'
@@ -243,6 +248,21 @@ describe 'call_filters', ->
 		res = ms.call_filters(entry, request, id, stash)
 		ms.filters.arg_or_value_to_value.filter.calledOnce.should.be.true
 		ms.filters.arg_or_value_to_value.filter.calledWithExactly(entry.argument, request, id, stash).should.be.true
+	it 'should initialize stash as hash', ->
+		stash = null
+		entry =
+			filters: ['get_stash']
+		return_stash = ms.call_filters(entry, request, id, stash)
+		return_stash.should.be.deep.equal {}
+	it 'should pass stash', ->
+		stash = null
+		entry =
+			filters: ['set_stash', 'get_stash']
+			argument:
+				set_stash:
+					foo: 'foo'
+		return_stash = ms.call_filters(entry, request, id, stash)
+		return_stash.should.be.deep.equal {foo: 'foo'}
 
 describe 'call_list', ->
 	ms = null
