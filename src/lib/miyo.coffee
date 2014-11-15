@@ -71,9 +71,9 @@ class Miyo
 			filter_names = entry.filters
 		else
 			filter_names = [entry.filters]
-		stash = {} unless stash?
 		@_process_filters 'data', 'value', filter_names, argument, request, id, stash
 	_process_filters: (input_type, output_type, filter_names, argument, request, id, stash) ->
+		stash = {} unless stash?
 		type = input_type
 		for filter_name in filter_names
 			filter = @filters[filter_name]
