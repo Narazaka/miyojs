@@ -121,6 +121,8 @@ class Miyo
 	build_response : ->
 		new ShioriJK.Message.Response()
 	make_value : (value, request) ->
+		if value?
+			value = "#{value}"
 		response = @build_response()
 		response.status_line.protocol = 'SHIORI'
 		response.status_line.version = '3.0'
