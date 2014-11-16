@@ -21,7 +21,7 @@ MiyoJSはゴースト起動時にSSPに読み込まれたSHIOLINK.dllからシ�
 
 起動後はShiolinkJSを利用してSSP←→SHIOLINK.dll←→MiyoJSとSHIORI/3.0の通信が受け渡されます。
 
-まずSHIORI load()に対応する呼び出しにより、辞書から特別な名前である_loadエントリを呼び出し、実行します。
+まずSHIORI load()に対応する呼び出しにより、辞書から特別な名前である_loadエントリを非同期に呼び出し、実行します。
 
 このloadの動作をゴースト作者は完全に制御できるので、通常ここで初期化処理を行います。
 
@@ -33,17 +33,63 @@ SHIORI request()に対応する呼び出しと返答は以下のように行わ�
 
 MiyoJSはrequest()呼び出しにより渡されたSHIORI/3.0 Requestメッセージを受け取ると、ShioriJKのパーサーによりShioriJK.Message.Requestオブジェクトにして扱います。
 
-辞書からそのリクエストがもつID名(IDヘッダの文字列)のエントリを呼び出し、実行した返り値からShioriJK.Message.Responseオブジェクトを生成します。
+辞書からそのリクエストがもつID名(IDヘッダの文字列)のエントリを非同期に呼び出し、実行した返値からShioriJK.Message.Responseオブジェクトを生成します。
 
 これは文字列化され、SHIORI/3.0 Responseメッセージとして返答とされます。
 
 ### 終了
 
-終了時は、SHIORI unload()に対応する呼び出しにより、辞書から特別な名前である_unloadエントリを呼び出し、実行します。
+終了時は、SHIORI unload()に対応する呼び出しにより、辞書から特別な名前である_unloadエントリを非同期に呼び出し、実行します。
 
 このunloadの動作もゴースト作者は完全に制御できるので、通常ここで終了処理を行います。
 
 その処理が終わると栞のプロセスを終了します。
+
+非同期
+-----------------------
+
+__MiyoJSは「非同期」に動作します。__
+
+これはMiyoのJavaScriptでの実装であるMiyoJSの特徴的な動作であり、JavaScriptでのあらゆる動作を簡単に記述できるようにするための対策です。
+
+### 非同期とは
+
+多くのプログラミング言語で標準的に記述される処理は「同期」な処理です。
+
+これは簡単に言えば、関数を呼んだときに、その関数が何らかの処理を終えるまでそこで処理がストップするような動作をいいます。
+
+一方「非同期」な処理とは、メインの流れが関数の内部の処理を待たずに次の処理に移行するような動作です。
+
+この場合、その関数から値を得たいときは同期的な処理で通常使われる「返値」で得ることはできず、代わりの手段としてその関数に、得たい値を引数にとる別の関数を渡して処理します。
+
+非同期な処理は一般的に、処理を並列に行うことで効率化を図ったり、停止しては困るプロセスの中で時間のかかる処理を行うときなどに使われます。
+
+CPUによる処理の待ち時間より通信の待ち時間のオーダーが大きいWeb技術と密接にかかわるJavaScriptでは、この非同期処理はそのどちらの目的でも広く使われています。
+
+なのでJavaScriptの機能やライブラリをフルに使いたい場合、この非同期対応は必須といえます。
+
+### 何が非同期か
+
+非同期処理は本質的には「呼んだ処理がどういう順番で完了するかわからない」ものです。
+並列実行や裏での処理では明らかにそのほうが効率がいいので、当然の動作といえます。
+
+しかしMiyoJSではそのような動作の要求はありません。
+単にあらゆるライブラリ、あらゆるJavaScriptの機能を簡潔に扱えるためのお膳立てとしての非同期対応です。
+
+なのでMiyoJSの動作は基本的には「実行した順番に完了」し、前の完了結果が次に渡されます。
+
+__エントリを普通に記述し、普通に同期的に書かれたフィルタを使えば特別なことを気にする必要はありません。__
+
+__フィルタで非同期な機能を使う場合にのみMiyoJSの非同期処理を意識する必要があります。__
+この点については「[フィルタの利用と作成](miyojs_filter.ja.md)」の項をご覧ください。
+
+### 非同期処理の実装方法「Promise」
+
+非同期処理の良い記述方法として「Futureパターン」というものがあり、そのJavaScriptでの実装として「Promise」があります。
+MiyoJSはこのPromiseを使って非同期処理を簡潔に記述できるようにしています。
+
+Promiseは非同期処理を同期処理とよく似た形で記述できるツールです。
+なので__ドキュメント中で「～を完了値とするPromiseオブジェクト」という記述が出てきますが、同期的な場合は単なるその値の返値と同じように処理が進むと思ってかまいません__。
 
 エントリの呼び出しと実行
 -----------------------
@@ -52,7 +98,7 @@ Miyoの最も主要な動作である「エントリ呼び出しと実行」に�
 
 起動時の「辞書読み込み」と、終了時の「プロセス終了」という例外的な動作を除いて、Miyoは全ての動作が「エントリの呼び出しと実行」です。
 
-load()、unload()時は与えられる情報が少なく、返り値が使われないという違いはありますが、それも「エントリの呼び出しと実行」に変わりありません。
+load()、unload()時は与えられる情報が少なく、返値が使われないという違いはありますが、それも「エントリの呼び出しと実行」に変わりありません。
 
 request()時の「エントリ呼び出しと実行」が標準的なので、それを基準に説明します。
 
@@ -102,7 +148,7 @@ miyo.call_value()に渡される単一値はたいていの場合単なるさく
 
 miyo.call_filters()に渡される連想配列値は、「フィルタ」の名前を列挙したfiltersキーと、最初のフィルタに渡す引数であるargumentキー(ない場合もある)をもつデータです。
 
-miyo.call_value()は「Valueフィルタ処理」、miyo.call_filters()は「フィルタ処理」をそれぞれ渡された値に施して、Valueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトを返します。
+miyo.call_value()は「Valueフィルタ処理」、miyo.call_filters()は「フィルタ処理」をそれぞれ渡された値に施して、Valueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトを完了値とするPromiseオブジェクトを返します。
 
 どちらにもエントリのほかにID、ShioriJK.Message.Requestも引数として渡されます。
 
@@ -112,15 +158,15 @@ miyo.call_value()は「Valueフィルタ処理」、miyo.call_filters()は「フ
 
 とりあえず、エントリの値に何らかの変換を施して、最終値を得るということです。
 
-この最終値、Valueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトをmiyo.request()に返します。
+この最終値、Valueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトを完了値とするPromiseオブジェクトをmiyo.request()に返します。
 
 ### SHIORI/3.0 Responseを生成する(request)
 
-Valueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトを受け取って、前者の場合はその値を基にしてShioriJK.Message.Responseオブジェクトを生成します。
+返されたPromiseオブジェクトからValueヘッダ文字列かShioriJK.Message.Responseオブジェクトを受け取って、前者の場合はその値を基にしてShioriJK.Message.Responseオブジェクトを生成します。
 
-これを文字列化してSHIORI/3.0 ResponseとしてSHIORIのrequest()に返答します。
+これを文字列化してSHIORI/3.0 Responseとし、それを完了値とするPromiseオブジェクトをSHIORIのrequest()に返答します。
 
-もしここまでの過程のうちでエラーが生じていた場合、500 Internal Server ErrorをSHIORIのrequest()に返答します。
+もしここまでの過程のうちでエラーが生じていた場合、500 Internal Server Errorを同様にSHIORIのrequest()に返答します。
 
 以上で「エントリの呼び出しと実行」の一連の流れが終了します。
 
@@ -158,7 +204,7 @@ unloadの場合、IDを「_unload」としてmiyo.call_id()が呼ばれます。
 
 ### call_filters
 
-miyo.call_filters()は、「フィルタ」の名前を列挙したfiltersキーと最初のフィルタに渡す引数であるargumentキー(ない場合もある)をもつ連想配列entry、リクエストオブジェクト、ID等を引数にとり、「フィルタ処理」を実行し、Valueヘッダ文字列かShioriJK.Message.Responseオブジェクトを返します。
+miyo.call_filters()は、「フィルタ」の名前を列挙したfiltersキーと最初のフィルタに渡す引数であるargumentキー(ない場合もある)をもつ連想配列entry、リクエストオブジェクト、ID等を引数にとり、「フィルタ処理」を実行し、Valueヘッダ文字列かShioriJK.Message.Responseオブジェクトを完了値とするPromiseオブジェクトを返します。
 
     var value_or_response = miyo.call_filters(
     	{filters: ['filter_name_1', 'filter_name_2'], argument: argument},
@@ -170,7 +216,7 @@ miyo.call_filters()は、「フィルタ」の名前を列挙したfiltersキー
 
 ### フィルタ処理
 
-「フィルタ処理」は、filtersで指定された「フィルタ群」にargumentの値を渡し、返値としてValueヘッダ文字列か、ShioriJK.Message.Responseオブジェクトを受け取る処理です。
+「フィルタ処理」は、filtersで指定された「フィルタ群」にargumentの値を渡し、返値としてValueヘッダ文字列かShioriJK.Message.Responseオブジェクト、またはそれを完了値とするPromiseオブジェクトを受け取る処理です。
 
 「フィルタ処理」は以下の手順で行われます。
 
@@ -181,8 +227,9 @@ miyo.call_filters()は、「フィルタ」の名前を列挙したfiltersキー
 これらをクリアした後、まずfiltersに指定された最初の名前の「フィルタ」にargumentの値を引数として渡して返値を得ます。
 
 次に2番目の「フィルタ」があればこの返値を引数として渡して再び返値を得ます。
+前の返値がPromiseオブジェクトならその完了値を引数として使います。
 
-3番目以降も前の「フィルタ」の返値を次の「フィルタ関数」の引数にして、全ての「フィルタ」を実行し、最後の返値を最終的な「フィルタ処理」の返値とします。
+3番目以降も前の「フィルタ」の返値を次の「フィルタ関数」の引数にして、全ての「フィルタ」を実行し、最後の返値を最終的な「フィルタ処理」の完了値とします。
 
 なお各「フィルタ」には利便のため上記の主引数と同時にリクエストオブジェクト、ID等も一緒に渡されています。
 
@@ -205,7 +252,7 @@ filter_2の引数はfilter_1の返値です。
 
 このように、Miyoにおいて「フィルタ」と呼ばれるものは、辞書から名前を指定して呼び出しできる単なる関数で、連想配列miyo.filtersに名前をキーとして登録されています。
 
-フィルタの具体的な作成方法は以降にある「フィルタの利用と作成」の項をご覧ください。
+フィルタの具体的な作成方法は「[フィルタの利用と作成](miyojs_filter.ja.md)」の項をご覧ください。
 
 フィルタは形式的には単なる関数ですが、しかし名前の通り、ある規約内の入力値と出力値を持つことを要求されます。
 
@@ -263,7 +310,7 @@ Valueフィルタ処理(call_value)
 
 ### call_value
 
-miyo.call_value()は、Valueヘッダ文字列かShioriJK.Message.Responseオブジェクトであるvalue、リクエストオブジェクト、ID等を引数にとり、「Valueフィルタ処理」を実行し、Valueヘッダ文字列かShioriJK.Message.Responseオブジェクトを返します。
+miyo.call_value()は、Valueヘッダ文字列かShioriJK.Message.Responseオブジェクトであるvalue、リクエストオブジェクト、ID等を引数にとり、「Valueフィルタ処理」を実行し、Valueヘッダ文字列かShioriJK.Message.Responseオブジェクトを完了値とするPromiseオブジェクトを返します。
 
     var value_or_response = miyo.call_value(
     	'\\h\\s[0]\\e',
@@ -275,7 +322,7 @@ miyo.call_value()は、Valueヘッダ文字列かShioriJK.Message.Responseオブ
 
 ### Valueフィルタ処理
 
-「フィルタ処理」は、miyo.value_filtersで指定された「フィルタ群」にvalueの値を渡し、返値としてValueヘッダ文字列かShioriJK.Message.Responseオブジェクトを受け取る処理です。
+「Valueフィルタ処理」は、miyo.value_filtersで指定された「フィルタ群」にvalueの値を渡し、返値としてValueヘッダ文字列かShioriJK.Message.Responseオブジェクト、またはそれを完了値とするPromiseオブジェクトを受け取る処理です。
 
 これは「フィルタ処理」(call_filters)でエントリのfiltersキーをmiyo.value_filters、argumentキーをvalueとしたものと同一です。
 
