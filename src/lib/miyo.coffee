@@ -7,6 +7,14 @@ if require?
 			Promise = require('es6-promise').Promise
 		catch
 			Promise = require('bluebird')
+else
+	if @Promise?
+		Promise = @Promise
+	else if @ES6Promise?.Promise?
+		Promise = @ES6Promise.Promise
+	ShioriJK = @ShioriJK
+	if @MiyoFilters?
+		MiyoFilters = @MiyoFilters
 
 class Miyo
 	constructor : (@dictionary) ->
@@ -158,3 +166,5 @@ Miyo.filter_types =
 
 if module? and module.exports?
 	module.exports = Miyo
+else
+	@Miyo = Miyo

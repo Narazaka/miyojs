@@ -1,11 +1,22 @@
-chai = require 'chai'
+if require?
+	chai = require 'chai'
+else
+	chai = @chai
 chai.should()
-chaiAsPromised = require 'chai-as-promised'
-chai.use chaiAsPromised
 expect = chai.expect
-sinon = require 'sinon'
-ShioriJK = require 'shiorijk'
-Miyo = require '../lib/miyo.js'
+if require?
+	chaiAsPromised = require 'chai-as-promised'
+else
+	chaiAsPromised = @chaiAsPromised
+chai.use chaiAsPromised
+if require?
+	sinon = require 'sinon'
+	ShioriJK = require 'shiorijk'
+	Miyo = require '../lib/miyo.js'
+else
+	sinon = @sinon
+	ShioriJK = @ShioriJK
+	Miyo = @Miyo
 
 describe 'build_response', ->
 	ms = null
@@ -443,16 +454,19 @@ describe 'unload', ->
 	call_id_spy = null
 	beforeEach ->
 		ms = new Miyo({})
-		exit_stub = sinon.stub process, 'exit'
+		if process?
+			exit_stub = sinon.stub process, 'exit'
 		call_id_spy = sinon.spy ms, 'call_id'
 	afterEach ->
-		exit_stub.restore()
+		if process?
+			exit_stub.restore()
 	it 'should call_id("_unload", null) and process.exit()', ->
 		ms.unload()
 		.then ->
 			call_id_spy.calledOnce.should.be.true
 			call_id_spy.firstCall.calledWithExactly('_unload', null).should.be.true
-			exit_stub.calledOnce.should.be.true
+			if process?
+				exit_stub.calledOnce.should.be.true
 		.should.eventually.be.fulfilled
 
 describe 'request', ->
@@ -508,5 +522,8 @@ describe 'request', ->
 		request_3.headers.set('ID', 'OnTestThrow')
 		ms.request(request_3)
 		.then (res) ->
-			"#{res}".should.be.equal ms.make_internal_server_error('test throw').toString()
+			try
+				call_id_stub('OnTestThrow')
+			catch error
+			"#{res}".should.be.equal ms.make_internal_server_error(error).toString()
 		.should.eventually.be.fulfilled
