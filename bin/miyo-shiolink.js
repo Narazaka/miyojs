@@ -4,10 +4,9 @@
 /* (C) 2014 Narazaka : Licensed under The MIT License - http://narazaka.net/license/MIT?2014 */
 var Miyo, ShiolinkJS, shiolink;
 
-if (typeof require !== "undefined" && require !== null) {
-  ShiolinkJS = require('shiolinkjs');
-  Miyo = require('miyojs');
-}
+ShiolinkJS = require('shiolinkjs');
+
+Miyo = require('../lib/miyo');
 
 shiolink = new ShiolinkJS(new Miyo(Miyo.DictionaryLoader.load_recursive(process.argv[2] != null ? process.argv[2] : '.')));
 
@@ -16,7 +15,9 @@ process.stdin.resume();
 process.stdin.setEncoding('utf8');
 
 process.stdin.on('data', function(chunk) {
-  return process.stdout.write(shiolink.add_chunk(chunk));
+  return shiolink.add_chunk(chunk).then(function(res) {
+    return process.stdout.write(res);
+  });
 });
 
 //# sourceMappingURL=miyo-shiolink.js.map

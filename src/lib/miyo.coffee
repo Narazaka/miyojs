@@ -2,6 +2,11 @@
 
 if require?
 	ShioriJK = require 'shiorijk'
+	unless Promise?
+		try
+			Promise = require('es6-promise').Promise
+		catch
+			Promise = require('bluebird')
 
 class Miyo
 	constructor : (@dictionary) ->
@@ -25,28 +30,37 @@ class Miyo
 		@default_response_headers = {}
 		@value_filters = []
 	load : (directory) ->
-		@shiori_dll_directory = directory
-		@call_id '_load', null
+		new Promise (resolve, reject) =>
+			@shiori_dll_directory = directory
+			resolve @call_id '_load', null
+		.then -> return
 	unload : ->
-		@call_id '_unload', null
-		if process?
-			process.exit()
+		new Promise (resolve, reject) =>
+			resolve @call_id '_unload', null
+		.then ->
+			if process?
+				process.exit()
+			return
 	request : (request) ->
 		if request.request_line.version == '3.0'
-			try
-				response = @call_id request.headers.get('ID'), request
+			new Promise (resolve, reject) =>
+				resolve @call_id request.headers.get('ID'), request
+			.then (response) =>
 				unless response instanceof ShioriJK.Message.Response
 					response = @make_value response, request
 				"#{response}" # catch response error in miyo
-			catch error
+			.catch (error) =>
 				@make_internal_server_error error, request
 		else
-			@make_bad_request request
+			new Promise (resolve, reject) =>
+				resolve @make_bad_request request
 	call_id : (id, request, stash) ->
 		entry = @dictionary[id]
 		if request == null # not request
 			if entry?
 				@call_entry entry, request, id, stash
+			else
+				new Promise (resolve, reject) -> resolve()
 		else
 			@call_entry entry, request, id, stash
 	call_entry : (entry, request, id, stash) ->
@@ -75,27 +89,35 @@ class Miyo
 	_process_filters: (input_type, output_type, filter_names, argument, request, id, stash) ->
 		stash = {} unless stash?
 		type = input_type
+		promise = new Promise (resolve, reject) -> resolve argument
 		for filter_name in filter_names
-			filter = @filters[filter_name]
-			unless filter?
-				throw "filter [#{filter_name}] not found"
-			unless filter.filter?
-				throw "filter [#{filter_name}] function is undefined"
-			filter_types = Miyo.filter_types[filter.type]
-			unless filter_types
-				throw "filter [#{filter_name}] has invalid filter type '#{filter.type}'"
-			{input, output} = filter_types
-			if input == type or input == 'through' or input == 'any'
-				unless output == 'through'
-					type = output
-			else
-				throw "filter [#{filter_name}] input type '#{input}' is inconsistent with previous output type '#{type}'"
-			argument = filter.filter.call @, argument, request, id, stash
-		unless !request? or type == output_type
-			throw "filters final output type '#{type}' is inconsistent with final output type 'value'"
-		argument
+			promise = promise.then ((filter_name) =>
+				(argument) =>
+					filter = @filters[filter_name]
+					unless filter?
+						throw "filter [#{filter_name}] not found"
+					unless filter.filter?
+						throw "filter [#{filter_name}] function is undefined"
+					filter_types = Miyo.filter_types[filter.type]
+					unless filter_types
+						throw "filter [#{filter_name}] has invalid filter type '#{filter.type}'"
+					{input, output} = filter_types
+					if input == type or input == 'through' or input == 'any'
+						unless output == 'through'
+							type = output
+					else
+						throw "filter [#{filter_name}] input type '#{input}' is inconsistent with previous output type '#{type}'"
+					argument = filter.filter.call @, argument, request, id, stash
+					argument
+				)(filter_name)
+		promise = promise.then (argument) ->
+			unless !request? or type == output_type
+				throw "filters final output type '#{type}' is inconsistent with final output type 'value'"
+			argument
+		promise
 	call_not_found : (entry, request, id, stash) ->
-		@make_bad_request request
+		new Promise (resolve, reject) =>
+			resolve @make_bad_request request
 	build_response : ->
 		new ShioriJK.Message.Response()
 	make_value : (value, request) ->

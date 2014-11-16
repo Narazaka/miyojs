@@ -1,5 +1,7 @@
 chai = require 'chai'
 chai.should()
+chaiAsPromised = require 'chai-as-promised'
+chai.use chaiAsPromised
 expect = chai.expect
 sinon = require 'sinon'
 ShioriJK = require 'shiorijk'
@@ -94,8 +96,10 @@ describe 'call_not_found', ->
 		ms = new Miyo()
 		ms.default_response_headers.Charset = 'UTF-8'
 	it 'should return 400', ->
-		res = ms.call_not_found()
-		res.status_line.code.should.be.equal 400
+		ms.call_not_found()
+		.then (res) ->
+			res.status_line.code.should.be.equal 400
+		.should.eventually.be.fulfilled
 
 describe 'call_value', ->
 	ms = null
@@ -112,16 +116,14 @@ describe 'call_value', ->
 	it 'should pass value to value_filters', ->
 		ms.filters.test_value_filter = type: 'value-value', filter: (value, request, id, stash) -> value + '\\e'
 		ms.value_filters.push 'test_value_filter'
-		res = ms.call_value(value, request, id, stash)
-		res.should.be.equal value + '\\e'
+		ms.call_value(value, request, id, stash).should.eventually.be.equal value + '\\e'
 	it 'should pass exact arguments to filters', ->
 		ms.filters.test_value_filter = type: 'value-value', filter: (value, request, id, stash) -> request + id + value + stash + '\\e'
 		ms.value_filters.push 'test_value_filter'
-		res = ms.call_value(value, request, id, stash)
-		res.should.be.equal request + id + value + stash + '\\e'
+		ms.call_value(value, request, id, stash).should.eventually.be.equal request + id + value + stash + '\\e'
 	it 'should throw on filter not found', ->
 		ms.value_filters.push 'test_value_filter'
-		(-> ms.call_value(value, request, id, stash)).should.throw /not found/
+		ms.call_value(value, request, id, stash).should.rejectedWith /not found/
 
 describe 'call_filters', ->
 	ms = null
@@ -162,25 +164,26 @@ describe 'call_filters', ->
 	it 'should throw on filter not found', ->
 		entry =
 			filters: ['test_filter_not_exists']
-		(-> ms.call_filters(entry, request, id, stash)).should.throw /not found/
-	it 'should throw on wrong filter type', ->
+		ms.call_filters(entry, request, id, stash).should.eventually.rejectedWith /not found/
+	it 'should throw on wrong(no) filter type', ->
 		entry =
 			filters: ['no_type']
-		(-> ms.call_filters(entry, request, id, stash)).should.throw /invalid filter type/
+		ms.call_filters(entry, request, id, stash).should.eventually.rejectedWith /invalid filter type/
+	it 'should throw on wrong filter type', ->
 		entry =
 			filters: ['wrong_type']
-		(-> ms.call_filters(entry, request, id, stash)).should.throw /invalid filter type/
+		ms.call_filters(entry, request, id, stash).should.eventually.rejectedWith /invalid filter type/
 	it 'should throw on empty filter function', ->
 		entry =
 			filters: ['no_function']
-		(-> ms.call_filters(entry, request, id, stash)).should.throw /function is undefined/
+		ms.call_filters(entry, request, id, stash).should.eventually.rejectedWith /function is undefined/
 	it 'should check filters types', ->
 		entry =
 			filters: ['this_prop_inc', 'arg_to_argument', 'arg_to_value', 'this_prop_inc', 'value_plus_end', 'arg_or_value_to_value', 'this_prop_inc', 'this_prop_inc']
 			argument:
 				arg_to_argument:
 					arg_to_value: 'ret'
-		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+		ms.call_filters(entry, request, id, stash).should.eventually.fulfilled
 	it 'should check filters type [any-value]', ->
 		# data -> any
 		entry =
@@ -188,13 +191,14 @@ describe 'call_filters', ->
 			argument:
 				arg_to_argument:
 					arg_or_value_to_value: 'ret'
-		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+		ms.call_filters(entry, request, id, stash).should.eventually.fulfilled
+	it 'should check filters type [any-value] 2', ->
 		# value -> any
 		entry =
 			filters: ['arg_to_value', 'arg_or_value_to_value']
 			argument:
 				arg_to_value: 'ret'
-		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+		ms.call_filters(entry, request, id, stash).should.eventually.fulfilled
 	it 'should check filters type [through]', ->
 		# data -> through
 		entry =
@@ -202,58 +206,64 @@ describe 'call_filters', ->
 			argument:
 				arg_to_argument:
 					arg_or_value_to_value: 'ret'
-		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+		ms.call_filters(entry, request, id, stash).should.eventually.fulfilled
+	it 'should check filters type [through] 2', ->
 		# value -> through
 		entry =
 			filters: ['arg_to_value', 'this_prop_inc', 'arg_or_value_to_value']
 			argument:
 				arg_to_value: 'ret'
-		(-> res = ms.call_filters(entry, request, id, stash)).should.not.throw()
+		ms.call_filters(entry, request, id, stash).should.eventually.fulfilled
 	it 'should throw with filters type inconsistency', ->
 		entry =
 			filters: ['this_prop_inc']
-		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with final/
+		ms.call_filters(entry, request, id, stash).should.eventually.rejectedWith /inconsistent with final/
+	it 'should throw with filters type inconsistency 2', ->
 		entry =
 			filters: ['arg_to_argument']
 			argument:
 				arg_to_argument: 'dummy'
-		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with final/
+		ms.call_filters(entry, request, id, stash).should.eventually.rejectedWith /inconsistent with final/
+	it 'should throw with filters type inconsistency 3', ->
 		entry =
 			filters: ['value_plus_end']
-		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with previous/
+		ms.call_filters(entry, request, id, stash).should.eventually.rejectedWith /inconsistent with previous/
+	it 'should throw with filters type inconsistency 4', ->
 		entry =
 			filters: ['arg_to_argument', 'value_plus_end']
 			argument:
 				arg_to_argument: 'dummy'
-		(-> res = ms.call_filters(entry, request, id, stash)).should.throw /inconsistent with previous/
+		ms.call_filters(entry, request, id, stash).should.eventually.rejectedWith /inconsistent with previous/
 	it 'should pass argument and filter-return-value to filters sequentially', ->
 		entry =
 			filters: ['arg_to_argument', 'arg_to_value']
 			argument:
 				arg_to_argument:
 					arg_to_value: 'ret'
-		res = ms.call_filters(entry, request, id, stash)
-		res.should.be.deep.equal 'ret'
+		ms.call_filters(entry, request, id, stash).should.eventually.be.deep.equal 'ret'
 	it 'should treat non-array filters property', ->
 		entry =
 			filters: 'arg_or_value_to_value'
 			argument: 'ret'
-		res = ms.call_filters(entry, request, id, stash)
-		res.should.be.deep.equal 'ret'
+		ms.call_filters(entry, request, id, stash).should.eventually.be.deep.equal 'ret'
 	it 'should pass exact arguments to filters', ->
 		entry =
 			filters: ['arg_or_value_to_value']
 			argument:
 				arg_or_value_to_value: 'ret'
-		res = ms.call_filters(entry, request, id, stash)
-		ms.filters.arg_or_value_to_value.filter.calledOnce.should.be.true
-		ms.filters.arg_or_value_to_value.filter.calledWithExactly(entry.argument, request, id, stash).should.be.true
+		ms.call_filters(entry, request, id, stash)
+		.then ->
+			ms.filters.arg_or_value_to_value.filter.calledOnce.should.be.true
+			ms.filters.arg_or_value_to_value.filter.calledWithExactly(entry.argument, request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 	it 'should initialize stash as hash', ->
 		stash = null
 		entry =
 			filters: ['get_stash']
-		return_stash = ms.call_filters(entry, request, id, stash)
-		return_stash.should.be.deep.equal {}
+		ms.call_filters(entry, request, id, stash)
+		.then (return_stash) ->
+			return_stash.should.be.deep.equal {}
+		.should.eventually.be.fulfilled
 	it 'should pass stash', ->
 		stash = null
 		entry =
@@ -261,8 +271,10 @@ describe 'call_filters', ->
 			argument:
 				set_stash:
 					foo: 'foo'
-		return_stash = ms.call_filters(entry, request, id, stash)
-		return_stash.should.be.deep.equal {foo: 'foo'}
+		ms.call_filters(entry, request, id, stash)
+		.then (return_stash) ->
+			return_stash.should.be.deep.equal {foo: 'foo'}
+		.should.eventually.be.fulfilled
 
 describe 'call_list', ->
 	ms = null
@@ -286,10 +298,12 @@ describe 'call_list', ->
 			'\\h\\s[0]\\e'
 			'\\h\\s[1]\\e'
 		]
-		res = ms.call_list(entry, request, id, stash)
-		res.should.be.equal entry[0]
-		call_entry_spy.callCount.should.be.equal 1
-		call_entry_spy.firstCall.calledWithExactly(entry[0], request, id, stash).should.be.true
+		ms.call_list(entry, request, id, stash)
+		.then (res) ->
+			res.should.be.equal entry[0]
+			call_entry_spy.callCount.should.be.equal 1
+			call_entry_spy.firstCall.calledWithExactly(entry[0], request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 	it 'should call call_entry recursively on nested entry', ->
 		random_stub.returns 0
 		entry = [
@@ -300,11 +314,13 @@ describe 'call_list', ->
 			'\\h\\s[2]\\e'
 			'\\h\\s[3]\\e'
 		]
-		res = ms.call_list(entry, request, id, stash)
-		res.should.be.equal entry[0][0]
-		call_entry_spy.callCount.should.be.equal 2
-		call_entry_spy.firstCall.calledWithExactly(entry[0], request, id, stash).should.be.true
-		call_entry_spy.lastCall.calledWithExactly(entry[0][0], request, id, stash).should.be.true
+		ms.call_list(entry, request, id, stash)
+		.then (res) ->
+			res.should.be.equal entry[0][0]
+			call_entry_spy.callCount.should.be.equal 2
+			call_entry_spy.firstCall.calledWithExactly(entry[0], request, id, stash).should.be.true
+			call_entry_spy.lastCall.calledWithExactly(entry[0][0], request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 
 describe 'call_entry', ->
 	ms = null
@@ -319,9 +335,11 @@ describe 'call_entry', ->
 	it 'should pass value entry to call_value', ->
 		entry = '\\h\\s[0]\\e'
 		s = sinon.spy ms, 'call_value'
-		res = ms.call_entry(entry, request, id, stash)
-		s.calledOnce.should.be.true
-		s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
+		ms.call_entry(entry, request, id, stash)
+		.then ->
+			s.calledOnce.should.be.true
+			s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 	it 'should pass filter entry to call_filters', ->
 		ms.filters.test_filter = type: 'data-value', filter: (argument, request, id, stash) -> argument
 		entry =
@@ -329,9 +347,11 @@ describe 'call_entry', ->
 			argument:
 				test_filter: 'test'
 		s = sinon.spy ms, 'call_filters'
-		res = ms.call_entry(entry, request, id, stash)
-		s.calledOnce.should.be.true
-		s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
+		ms.call_entry(entry, request, id, stash)
+		.then ->
+			s.calledOnce.should.be.true
+			s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 	it 'should pass list entry to call_list', ->
 		random_stub = sinon.stub Math, 'random'
 		random_stub.returns 0.9
@@ -344,16 +364,20 @@ describe 'call_entry', ->
 			'\\h\\s[3]\\e'
 		]
 		s = sinon.spy ms, 'call_list'
-		res = ms.call_entry(entry, request, id, stash)
-		s.calledOnce.should.be.true
-		s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
-		random_stub.restore()
+		ms.call_entry(entry, request, id, stash)
+		.then ->
+			s.calledOnce.should.be.true
+			s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
+			random_stub.restore()
+		.should.eventually.be.fulfilled
 	it 'should pass invalid entry to call_not_found', ->
 		entry = `undefined`
 		s = sinon.spy ms, 'call_not_found'
-		res = ms.call_entry(entry, request, id, stash)
-		s.calledOnce.should.be.true
-		s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
+		ms.call_entry(entry, request, id, stash)
+		.then ->
+			s.calledOnce.should.be.true
+			s.firstCall.calledWithExactly(entry, request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 
 describe 'call_id', ->
 	ms = null
@@ -368,27 +392,35 @@ describe 'call_id', ->
 	it 'should not call_id on undefined entry with null request (load, unload)', ->
 		id = '_unload'
 		request = null
-		res = ms.call_id(id, request, stash)
-		call_entry_spy.callCount.should.be.equal 0
-		expect(res).be.undefined
+		ms.call_id(id, request, stash)
+		.then (res) ->
+			call_entry_spy.callCount.should.be.equal 0
+			expect(res).be.undefined
+		.should.eventually.be.fulfilled
 	it 'should call_id on defined entry with null request (load, unload)', ->
 		id = '_load'
 		request = null
-		res = ms.call_id(id, request, stash)
-		call_entry_spy.calledOnce.should.be.true
-		call_entry_spy.firstCall.calledWithExactly(dictionary._load, request, id, stash).should.be.true
+		ms.call_id(id, request, stash)
+		.then ->
+			call_entry_spy.calledOnce.should.be.true
+			call_entry_spy.firstCall.calledWithExactly(dictionary._load, request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 	it 'should call_id on undefined entry with normal request (request)', ->
 		id = 'onTestTest'
 		request = new ShioriJK.Message.Request()
-		res = ms.call_id(id, request, stash)
-		call_entry_spy.calledOnce.should.be.true
-		call_entry_spy.firstCall.calledWithExactly(`undefined`, request, id, stash).should.be.true
+		ms.call_id(id, request, stash)
+		.then ->
+			call_entry_spy.calledOnce.should.be.true
+			call_entry_spy.firstCall.calledWithExactly(`undefined`, request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 	it 'should call_id on defined entry with normal request (request)', ->
 		id = 'OnTest'
 		request = new ShioriJK.Message.Request()
-		res = ms.call_id(id, request, stash)
-		call_entry_spy.calledOnce.should.be.true
-		call_entry_spy.firstCall.calledWithExactly(dictionary.OnTest, request, id, stash).should.be.true
+		ms.call_id(id, request, stash)
+		.then ->
+			call_entry_spy.calledOnce.should.be.true
+			call_entry_spy.firstCall.calledWithExactly(dictionary.OnTest, request, id, stash).should.be.true
+		.should.eventually.be.fulfilled
 
 describe 'load', ->
 	ms = null
@@ -398,10 +430,12 @@ describe 'load', ->
 		call_id_spy = sinon.spy ms, 'call_id'
 	it 'should call_id("_load", null) and store shiori_dll_directory', ->
 		directory = '/'
-		res = ms.load(directory)
-		call_id_spy.calledOnce.should.be.true
-		call_id_spy.firstCall.calledWithExactly('_load', null).should.be.true
-		ms.shiori_dll_directory.should.be.equal directory
+		ms.load(directory)
+		.then ->
+			call_id_spy.calledOnce.should.be.true
+			call_id_spy.firstCall.calledWithExactly('_load', null).should.be.true
+			ms.shiori_dll_directory.should.be.equal directory
+		.should.eventually.be.fulfilled
 
 describe 'unload', ->
 	ms = null
@@ -414,10 +448,12 @@ describe 'unload', ->
 	afterEach ->
 		exit_stub.restore()
 	it 'should call_id("_unload", null) and process.exit()', ->
-		res = ms.unload()
-		call_id_spy.calledOnce.should.be.true
-		call_id_spy.firstCall.calledWithExactly('_unload', null).should.be.true
-		exit_stub.calledOnce.should.be.true
+		ms.unload()
+		.then ->
+			call_id_spy.calledOnce.should.be.true
+			call_id_spy.firstCall.calledWithExactly('_unload', null).should.be.true
+			exit_stub.calledOnce.should.be.true
+		.should.eventually.be.fulfilled
 
 describe 'request', ->
 	ms = null
@@ -452,17 +488,25 @@ describe 'request', ->
 		call_id_stub.withArgs('OnTestResponse').returns(response)
 		call_id_stub.withArgs('OnTestThrow').throws('test throw')
 	it 'should make bad request on SHIORI/2.x', ->
-		res = ms.request(request_2)
-		"#{res}".should.be.equal ms.make_bad_request().toString()
+		ms.request(request_2)
+		.then (res) ->
+			"#{res}".should.be.equal ms.make_bad_request().toString()
+		.should.eventually.be.fulfilled
 	it 'should make response on entry that returns value', ->
 		request_3.headers.set('ID', 'OnTest')
-		res = ms.request(request_3)
-		"#{res}".should.be.equal ms.make_value('test').toString()
+		ms.request(request_3)
+		.then (res) ->
+			"#{res}".should.be.equal ms.make_value('test').toString()
+		.should.eventually.be.fulfilled
 	it 'should return response on entry that returns response object', ->
 		request_3.headers.set('ID', 'OnTestResponse')
-		res = ms.request(request_3)
-		"#{res}".should.be.equal response.toString()
+		ms.request(request_3)
+		.then (res) ->
+			"#{res}".should.be.equal response.toString()
+		.should.eventually.be.fulfilled
 	it 'should make internal server error on entry that throws', ->
 		request_3.headers.set('ID', 'OnTestThrow')
-		res = ms.request(request_3)
-		"#{res}".should.be.equal ms.make_internal_server_error('test throw').toString()
+		ms.request(request_3)
+		.then (res) ->
+			"#{res}".should.be.equal ms.make_internal_server_error('test throw').toString()
+		.should.eventually.be.fulfilled
