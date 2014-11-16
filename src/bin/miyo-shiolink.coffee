@@ -9,4 +9,6 @@ process.stdin.resume()
 process.stdin.setEncoding 'utf8'
 process.stdin.on 'data', (chunk) ->
 	shiolink.add_chunk chunk
-	.then (res) -> process.stdout.write res
+	.then (res) ->
+		if res.length
+			process.stdout.write res

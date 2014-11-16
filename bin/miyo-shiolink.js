@@ -18,7 +18,9 @@
 
   process.stdin.on('data', function(chunk) {
     return shiolink.add_chunk(chunk).then(function(res) {
-      return process.stdout.write(res);
+      if (res.length) {
+        return process.stdout.write(res);
+      }
     });
   });
 
