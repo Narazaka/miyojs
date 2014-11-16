@@ -224,9 +224,27 @@ stashはフィルタ関数内部からこれらcall_*()を呼ぶときに指定�
 
 stashはload(), unload(), request()から直接呼ばれたcall_value(), call_filters()では常に未定義です。
 
-#### フィルタの返値
+#### 非同期処理の注意
 
-MiyoJSは[Promise](http://azu.github.io/promises-book/)による非同期処理をサポートしています。
+MiyoJSはPromiseによる非同期処理をサポートしています。
+
+これによりload(), request(), unload()とcall_*()の各メソッドは全てPromiseを返値とします。
+
+なのでこれらの処理結果を単純に返すのではなくフィルタ内で加工したい場合は、Promiseの手順に従って記述する必要が出ます。
+
+    this.call_id(id, request, stash).then(
+    	function(value){ // 非同期で実行された結果の値を処理する
+    		...
+    	}
+    ).catch(
+    	function(error){ // 非同期での実行が失敗した場合の例外処理(必要な場合)
+    		...
+    	}
+    );
+
+詳しくは[JavaScript Promises: There and back again - HTML5 Rocks](http://tutorials.html5rocks.com/ja/tutorials/es6/promises/)や[JavaScript Promiseの本](http://azu.github.io/promises-book/)の説明等を参照してください。
+
+#### フィルタの返値
 
 フィルタの返値は任意の値ですが、ここにPromiseオブジェクトを返した場合thenで解決されてその完了値が次のフィルタにわたります。
 
