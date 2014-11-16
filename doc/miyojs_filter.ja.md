@@ -113,28 +113,54 @@ node.jsとして動く場合、miyo_require_filtersはmodule.exportsでエクス
 
 よってフィルタのテンプレートとしては以下が推奨されます。
 
-    var MiyoFilters;
-    if (! MiyoFilters) MiyoFilters = {};
+    (function() {
+    	var MiyoFilters;
+    	
+    	if (this.MiyoFilters != null) {
+    		MiyoFilters = this.MiyoFilters;
+    	} else {
+    		MiyoFilters = {};
+    	}
+    	
+    	...
+    	
+    	MiyoFilters.foo_filter = {
+    		type: '...',
+    		filter: function(argument, request, id, stash){...}
+    	};
+    	
+    	...
+    	
+    	if ((typeof module !== "undefined" && module !== null) && (module.exports != null)) {
+    		module.exports = MiyoFilters;
+    	} else {
+    		this.MiyoFilters = MiyoFilters;
+    	}
     
-    MiyoFilters.foo_filter = {
-    	type: '...',
-    	filter: function(argument, request, id, stash){...}
-    };
-    
-    if ((typeof module !== "undefined" && module !== null) && (module.exports != null)) {
-    	module.exports = MiyoFilters;
-    }
+    }).call(this);
 
-coffee-scriptで生成する場合は以下のようにして、--bare(-b)オプションをつけてください。
+外側の関数はグローバルな名前の衝突を避けるJavaScriptの一般的な書き方です。
 
-    unless MiyoFilters?
+coffee-scriptで生成する場合は以下のようにしてください。
+
+    if @MiyoFilters?
+    	MiyoFilters = @MiyoFilters
+    else
     	MiyoFilters = {}
+    
+    ...
     
     MiyoFilters.foo_filter = type: '...', filter: (argument, request, id, stash) ->
     	...
     
+    ...
+    
     if module?.exports?
     	module.exports = MiyoFilters
+    else
+    	@MiyoFilters = MiyoFilters
+
+coffee-scriptではコンパイル時にデフォルトで外側の関数が作られます。
 
 foo_filterがフィルタ名で、これが辞書内のfiltersに記述される名前となります。
 
@@ -224,7 +250,7 @@ stashはフィルタ関数内部からこれらcall_*()を呼ぶときに指定�
 
 stashはload(), unload(), request()から直接呼ばれたcall_value(), call_filters()では常に未定義です。
 
-#### 非同期処理の注意
+#### 非同期処理サポートとその副作用の注意
 
 MiyoJSはPromiseによる非同期処理をサポートしています。
 
@@ -260,6 +286,40 @@ MiyoJSはPromiseによる非同期処理をサポートしています。
 
 自由なPromiseライブラリを使ってよいですが、上記は必要十分な機能を備えています。
 とくにブラウザでの使用時に依存ライブラリを減らすためにこれらから選ぶのは賢明な施策でしょう。
+
+それらライブラリを使ってフィルタを実装する場合は、以下のコードを冒頭のMiyoFilters定義のあたりに追加で書いておくとよいでしょう。
+
+    var Promise;
+    
+    if (Promise == null) {
+    	if (typeof require !== "undefined" && require !== null) {
+    		try {
+    			Promise = require('es6-promise').Promise;
+    		} catch (_error) {
+    			Promise = require('bluebird');
+    		}
+    	} else {
+    		if (this.Promise != null) {
+    			Promise = this.Promise;
+    		} else if (this.ES6Promise != null) {
+    			Promise = this.ES6Promise.Promise;
+    		}
+    	}
+    }
+
+coffee-scriptで生成する場合は以下のようにしてください。
+
+    unless Promise?
+    	if require?
+    		try
+    			Promise = require('es6-promise').Promise
+    		catch
+    			Promise = require('bluebird')
+    	else
+    		if @Promise?
+    			Promise = @Promise
+    		else if @ES6Promise?.Promise?
+    			Promise = @ES6Promise.Promise
 
 #### フィルタモジュールの作成
 
@@ -395,7 +455,9 @@ MiyoJSの動作環境に即してnode.js・ブラウザ両対応するとき、�
     var ShioriJK;
     if (typeof require !== "undefined" && require !== null) {
     	ShioriJK = require('shiorijk');
-    }
+    }else{
+		ShioriJK = this.ShioriJK;
+	}
     
     var shiorijk = new ShioriJK();
     ...
@@ -404,6 +466,8 @@ coffee-scriptで生成する場合は以下
 
     if require
     	ShioriJK = require 'shiorijk'
+	else
+		ShioriJK = @ShioriJK
     
     shiorijk = new ShioriJK()
     ...
